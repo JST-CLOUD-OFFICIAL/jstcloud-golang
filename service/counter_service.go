@@ -3,7 +3,6 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -15,44 +14,58 @@ import (
 
 // JsonResult 返回结构
 type JsonResult struct {
-	Code     int         `json:"code"`
-	Message  string      `json:"message,omitempty"`
-	Data     interface{} `json:"data"`
-}
-
-// IndexHandler 计数器接口
-func IndexHandler(w http.ResponseWriter, r *http.Request) {
-	data, err := getIndex()
-	if err != nil {
-		fmt.Fprint(w, "内部错误")
-		return
-	}
-	fmt.Fprint(w, data)
+	Code    int         `json:"code"`
+	Message string      `json:"message,omitempty"`
+	Data    interface{} `json:"data"`
 }
 
 // CounterHandler 计数器接口
 func CounterHandler(w http.ResponseWriter, r *http.Request) {
 	res := &JsonResult{}
 
-	if r.Method == http.MethodGet {
-		counter, err := getCurrentCounter()
-		if err != nil {
-			res.Code = -1
-			res.ErrorMsg = err.Error()
+	switch r.URL.Path {
+	case "/counter":
+		if r.Method == http.MethodGet {
+			count, err := getCounter()
+			if err != nil {
+				res.Code = -1
+				res.Message = err.Error()
+			} else {
+				res.Data = count
+			}
 		} else {
-			res.Data = counter.Count
-		}
-	} else if r.Method == http.MethodPost {
-		count, err := modifyCounter(r)
-		if err != nil {
 			res.Code = -1
-			res.ErrorMsg = err.Error()
-		} else {
-			res.Data = count
+			res.Message = fmt.Sprintf("请求方法 %s 不支持", r.Method)
 		}
-	} else {
+	case "/counter/increment":
+		if r.Method == http.MethodPost {
+			count, err := increaseCounter()
+			if err != nil {
+				res.Code = -1
+				res.Message = err.Error()
+			} else {
+				res.Data = count
+			}
+		} else {
+			res.Code = -1
+			res.Message = fmt.Sprintf("请求方法 %s 不支持", r.Method)
+		}
+	case "/counter/decrement":
+		if r.Method == http.MethodPost {
+			count, err := decreaseCounter()
+			if err != nil {
+				res.Code = -1
+				res.Message = err.Error()
+			} else {
+				res.Data = count
+			}
+		} else {
+			res.Code = -1
+			res.Message = fmt.Sprintf("请求方法 %s 不支持", r.Method)
+		}
+	default:
 		res.Code = -1
-		res.ErrorMsg = fmt.Sprintf("请求方法 %s 不支持", r.Method)
+		res.Message = "请求路径不存在"
 	}
 
 	msg, err := json.Marshal(res)
@@ -64,89 +77,60 @@ func CounterHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(msg)
 }
 
-// modifyCounter 更新计数，自增或者清零
-func modifyCounter(r *http.Request) (int32, error) {
-	action, err := getAction(r)
-	if err != nil {
-		return 0, err
-	}
-
-	var count int32
-	if action == "inc" {
-		count, err = upsertCounter(r)
-		if err != nil {
-			return 0, err
-		}
-	} else if action == "clear" {
-		err = clearCounter()
-		if err != nil {
-			return 0, err
-		}
-		count = 0
-	} else {
-		err = fmt.Errorf("参数 action : %s 错误", action)
-	}
-
-	return count, err
-}
-
-// upsertCounter 更新或修改计数器
-func upsertCounter(r *http.Request) (int32, error) {
-	currentCounter, err := getCurrentCounter()
-	var count int32
-	createdAt := time.Now()
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return 0, err
-	} else if err == gorm.ErrRecordNotFound {
-		count = 1
-		createdAt = time.Now()
-	} else {
-		count = currentCounter.Count + 1
-		createdAt = currentCounter.CreatedAt
-	}
-
-	counter := &model.CounterModel{
-		Id:        1,
-		Count:     count,
-		CreatedAt: createdAt,
-		UpdatedAt: time.Now(),
-	}
-	err = dao.Imp.UpsertCounter(counter)
+// getCounter 获取计数器值
+func getCounter() (int32, error) {
+	counter, err := dao.Imp.GetCounterById(1)
 	if err != nil {
 		return 0, err
 	}
 	return counter.Count, nil
 }
 
-func clearCounter() error {
-	return dao.Imp.ClearCounter(1)
-}
+// increaseCounter 自增计数器
+func increaseCounter() (int32, error) {
+	currentCounter, err := dao.Imp.GetCounterById(1)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return 0, err
+	}
 
-// getCurrentCounter 查询当前计数器
-func getCurrentCounter() (*model.CounterModel, error) {
-	counter, err := dao.Imp.GetCounter(1)
+	counter := &model.Counter{
+		Id:          1,
+		GmtModified: time.Now(),
+	}
+	if err == gorm.ErrRecordNotFound {
+		counter.Count = 1
+		counter.GmtCreated = time.Now()
+		err = dao.Imp.InsertCounter(counter)
+	} else {
+		counter.Count = currentCounter.Count + 1
+		err = dao.Imp.UpdateCounter(counter)
+	}
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-
-	return counter, nil
+	return counter.Count, nil
 }
 
-// getAction 获取action
-func getAction(r *http.Request) (string, error) {
-	decoder := json.NewDecoder(r.Body)
-	body := make(map[string]interface{})
-	if err := decoder.Decode(&body); err != nil {
-		return "", err
+// decreaseCounter 自减计数器
+func decreaseCounter() (int32, error) {
+	currentCounter, err := dao.Imp.GetCounterById(1)
+	if err != nil {
+		return 0, err
 	}
-	defer r.Body.Close()
-
-	action, ok := body["action"]
-	if !ok {
-		return "", fmt.Errorf("缺少 action 参数")
+	counter := &model.Counter{
+		Id:          1,
+		GmtModified: time.Now(),
 	}
-
-	return action.(string), nil
+	if err == gorm.ErrRecordNotFound {
+		counter.Count = 1
+		counter.GmtCreated = time.Now()
+		err = dao.Imp.InsertCounter(counter)
+	} else {
+		counter.Count = currentCounter.Count - 1
+		err = dao.Imp.UpdateCounter(counter)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return counter.Count, nil
 }
-
-
