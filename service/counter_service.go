@@ -38,7 +38,7 @@ func CounterHandler(w http.ResponseWriter, r *http.Request) {
 			res.Message = fmt.Sprintf("请求方法 %s 不支持", r.Method)
 		}
 	case "/counter/increment":
-		if r.Method == http.MethodPost {
+		if r.Method == http.MethodGet {
 			count, err := increaseCounter()
 			if err != nil {
 				res.Code = -1
@@ -51,7 +51,7 @@ func CounterHandler(w http.ResponseWriter, r *http.Request) {
 			res.Message = fmt.Sprintf("请求方法 %s 不支持", r.Method)
 		}
 	case "/counter/decrement":
-		if r.Method == http.MethodPost {
+		if r.Method == http.MethodGet {
 			count, err := decreaseCounter()
 			if err != nil {
 				res.Code = -1

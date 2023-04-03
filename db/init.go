@@ -13,14 +13,14 @@ var dbInstance *gorm.DB
 
 // 初始化数据库
 func Init() error {
-	source := "%s:%s@tcp(%s:%s)/%s?readTimeout=1500ms&writeTimeout=1500ms&charset=utf8&loc=Local&&parseTime=true"
+	source := "%s:%s@tcp(%s:%d)/%s?readTimeout=1500ms&writeTimeout=1500ms&charset=utf8&loc=Local&parseTime=true"
 	user := os.Getenv("db_user")
 	pwd := os.Getenv("db_pass")
 	addr := os.Getenv("db_addr")
-	dataBase := os.Getenv("db_name")
+	database := os.Getenv("db_name")
 	port := 3306
 
-	source = fmt.Sprintf(source, user, pwd, addr, port, dataBase)
+	source = fmt.Sprintf(source, user, pwd, addr, port, database)
 	fmt.Println("start init mysql with ", source)
 
 	// 链接数据库

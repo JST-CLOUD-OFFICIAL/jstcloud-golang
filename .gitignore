@@ -13,3 +13,5 @@ vendor/
 *.dll
 *.so
 *.dylib
+
+test.sh
