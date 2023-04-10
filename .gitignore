@@ -14,4 +14,7 @@ vendor/
 *.so
 *.dylib
 
+# test and output file
 test.sh
+*demo.zip
+main

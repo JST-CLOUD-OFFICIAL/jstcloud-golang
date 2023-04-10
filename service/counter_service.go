@@ -19,6 +19,21 @@ type JsonResult struct {
 	Data    interface{} `json:"data"`
 }
 
+// hello world 接口
+func HelloWorldHandler(w http.ResponseWriter, r *http.Request) {
+	res := &JsonResult{}
+	res.Code = 400
+	res.Message = "Welcome to Jst AppEngine, Hello World!"
+
+	msg, err := json.Marshal(res)
+	if err != nil {
+		fmt.Fprint(w, "内部错误")
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	w.Write(msg)
+}
+
 // CounterHandler 计数器接口
 func CounterHandler(w http.ResponseWriter, r *http.Request) {
 	res := &JsonResult{}

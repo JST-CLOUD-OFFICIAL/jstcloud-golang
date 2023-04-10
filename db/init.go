@@ -20,6 +20,10 @@ func Init() error {
 	database := os.Getenv("db_name")
 	port := 3306
 
+	if len(pwd) == 0 {
+		return nil
+	}
+
 	source = fmt.Sprintf(source, user, pwd, addr, port, database)
 	fmt.Println("start init mysql with ", source)
 
